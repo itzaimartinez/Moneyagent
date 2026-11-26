@@ -146,7 +146,10 @@ function render(){({gastos:rGastos,quincena:rQuincena,tarjetas:rTarjetas,metas:r
 let openMov=null;
 function rGastos(){
   const v=$("v-gastos");const sm=summary();
+  const standalone=navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;
+  const showInst=!standalone&&ls.get("monygent.instHide")!=="1";
   v.innerHTML=`
+  ${showInst?`<div class="card stack" style="gap:8px"><b>Instálala en tu celular</b><span class="small muted">1. Copia tu código. 2. En Safari toca ••• o Compartir → «Agregar a inicio». 3. Abre moneyagent desde el ícono y pega tu código en «¿Ya compraste?». Tu celular guarda la app aparte del navegador, por eso se activa otra vez.</span><div class="row"><button class="btn soft sm" id="cpLic">Copiar mi código</button><button class="btn ghost sm" id="hideInst">Ya la instalé</button></div></div>`:""}
   <form class="card cap" id="capForm" autocomplete="off">
     <label class="amount" for="monto"><span>$</span><input id="monto" inputmode="decimal" enterkeyhint="done" placeholder="0" aria-label="¿Cuánto gastaste?"></label>
     <div class="cats" role="group" aria-label="Categoría">${CATS.map(c=>`<button type="button" class="cat" aria-pressed="${c===S.cat}" data-c="${c}">${c}</button>`).join("")}</div>
@@ -158,6 +161,7 @@ function rGastos(){
   v.querySelectorAll(".cat").forEach(b=>b.onclick=()=>{S.cat=b.dataset.c;save();v.querySelectorAll(".cat").forEach(x=>x.setAttribute("aria-pressed",x===b));});
   const mi=$("monto");mi.oninput=()=>$("guardar").disabled=!money(mi.value);
   $("toQ").onclick=()=>go("quincena");
+  if(showInst){$("cpLic").onclick=()=>copyLic();$("hideInst").onclick=()=>{ls.set("monygent.instHide","1");rGastos();};}
   $("capForm").onsubmit=e=>{e.preventDefault();const m=money(mi.value);if(!m)return;
     const g={id:uid(),monto:m,cat:S.cat,nota:$("nota").value.trim(),ts:Date.now()};S.gastos.unshift(g);save();
     toast("Guardado "+fmt(m)+" · "+g.cat,()=>{S.gastos=S.gastos.filter(x=>x.id!==g.id);save();render();});render();setTimeout(()=>$("monto")&&$("monto").focus(),0);};
@@ -341,6 +345,8 @@ function openSetup(first){
       <div class="row"><button class="btn ghost sm" id="bk">Guardar respaldo</button><label class="btn ghost sm" for="rs" style="text-align:center">Restaurar respaldo</label><input type="file" id="rs" accept=".json,application/json" hidden></div>
     </section>
     <section class="stack"><h2 style="font-size:1.05rem">Licencia</h2><p class="small muted" style="margin:0">moneyagent activada${LICENSE&&LICENSE.n?" a nombre de <b>"+esc(LICENSE.n)+"</b>":""}. Gracias por tu compra.</p>
+      <button class="btn ghost" type="button" id="cpLic2">Copiar mi código de activación</button>
+      <p class="small muted" style="margin:0">Guárdalo: lo necesitas si cambias de celular o instalas la app desde el ícono.</p>
       <button class="btn danger" type="button" id="wipe">Borrar todos mis datos</button>
     </section>`}`,()=>{
     $("sf").onsubmit=e=>{e.preventDefault();const i=money($("si").value);const d=x=>{const n=parseInt($(x).value,10);return n>=1&&n<=31?n:null;};
@@ -354,9 +360,12 @@ function openSetup(first){
       S.fijos.push({id:uid(),nombre:n,monto:m,freq:q,dia:q==="m"?dd:null});save();$("fxl").innerHTML=fx();bindRm();e.target.reset();render();toast("Pago fijo agregado");};
     $("bk").onclick=()=>shareFile("monygent-respaldo-"+dkey(new Date())+".json",JSON.stringify(S),"application/json");
     $("rs").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!d||!Array.isArray(d.gastos))throw 0;S=Object.assign(structuredClone(DEF),d);save();closeSheet();render();toast("Respaldo restaurado");}catch(x){toast("Ese archivo no es un respaldo de moneyagent.");}};
+    $("cpLic2").onclick=()=>copyLic();
     confirmBtn($("wipe"),()=>{S=structuredClone(DEF);save();ls.del("monygent.setup");closeSheet();render();toast("Datos borrados");});
   });
 }
+
+async function copyLic(){const c=ls.get(LIC)||"";try{await navigator.clipboard.writeText(c);toast("Código copiado. Pégalo en la app instalada.");}catch(e){shareFile("codigo-moneyagent.txt",c,"text/plain");}}
 
 /* ====== Recordatorios (.ics) ====== */
 function exportICS(){
